@@ -1,0 +1,99 @@
+nameOverride: ""
+fullnameOverride: ""
+
+connect:
+  log_level: debug
+  replicaCount: 1
+  imagePullSecrets: [ ]
+  properties:
+    group_id: "1"
+    topics_basename: "debezium"
+  secret:
+    # KAFKA_USER_PASSWORD: ""
+  kafka:
+    bootstrap_servers: kafka:9092
+    security_protocol: SASL_PLAINTEXT
+    sasl_mechanism: SCRAM-SHA-512
+  storage:
+    size: 10Gi
+  image:
+    repository: ggvdevops/debezium-connect
+    pullPolicy: Always
+    tag: "2.7.3"
+
+  service:
+    type: ClusterIP
+    port: 8083
+    protocol: TCP
+    name: http
+
+  ingress:
+    enabled: false
+
+  autoscaling:
+    enabled: false
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+
+  env:
+    - name: KAFKA_LOG4J_OPTS
+      value: -Dlog4j.configuration=file:/kafka/config/log4j.properties
+    - name: KAFKA_HEAP_OPTS
+      value: '-Xms256m -Xmx2g'
+    - name: KAFKA_JVM_PERFORMANCE_OPTS
+      value: '-server -XX:+UseG1GC -XX:MetaspaceSize=96m -XX:MaxGCPauseMillis=20 -XX:InitiatingHeapOccupancyPercent=35 -XX:+ExplicitGCInvokesConcurrent -XX:G1HeapRegionSize=16M -XX:MinMetaspaceFreeRatio=50 -XX:MaxMetaspaceFreeRatio=80 -XX:MaxInlineLevel=15 -Djava.awt.headless=true'
+
+
+debezium:
+  image: ggvdevops/debezium-connect:2.7.3
+  connectors:
+    - name: test
+      config:
+        topic.prefix: debezium.whizr
+        database.hostname: hostname
+        database.dbname: dbname
+        database.user: user
+        database.password: password
+        plugin.name: pgoutput
+        publication.name: debezium_connect
+        snapshot.mode: initial
+        schema.whitelist: public
+        slot.name: test
+        table.include.list: [test]
+        connector.class: io.debezium.connector.postgresql.PostgresConnector
+        publication.autocreate.mode: filtered
+  sink: |
+    group.id=1
+    listeners=http://0.0.0.0:8083
+    topic.creation.enable=true
+    task.shutdown.graceful.timeout.ms=10000
+    plugin.path=/kafka/connect
+    offset.storage.topic=debezium.offset
+    offset.storage.replication.factor=1
+    offset.flush.interval.ms=60000
+    offset.flush.timeout.ms=5000
+    config.storage.topic=admin.config
+    config.storage.replication.factor=1
+    status.storage.topic=debezium.status
+    status.storage.replication.factor=1
+    cleanup.policy=compact
+    key.converter=io.confluent.connect.avro.AvroConverter
+    value.converter=io.confluent.connect.avro.AvroConverter
+    key.converter.schema.registry.url=http://schema.registry:8081
+    value.converter.schema.registry.url=http://schema.registry:8081
+    internal.key.converter=org.apache.kafka.connect.json.JsonConverter
+    internal.value.converter=org.apache.kafka.connect.json.JsonConverter
+    bootstrap.servers=kafka
+    security.protocol=SASL_PLAINTEXT
+    sasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule required username="admin-user" password="${KAFKA_USER_PASSWORD}";
+    sasl.mechanism=SCRAM-SHA-512
+    producer.bootstrap.servers=kafka
+    producer.security.protocol=SASL_PLAINTEXT
+    producer.sasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule required username="admin-user" password="${KAFKA_USER_PASSWORD}";
+    producer.sasl.mechanism=SCRAM-SHA-512
+
+
+
