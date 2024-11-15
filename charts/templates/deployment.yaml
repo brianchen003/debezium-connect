@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "debezium.name" . }}
+  labels:
+    {{- include "debezium.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "debezium.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ toJson .Values | sha256sum }}
+        checksum/configmap: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        checksum/scripts: {{ include (print $.Template.BasePath "/scripts.yaml") . | sha256sum }}
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9071"
+      labels:
+        {{- include "debezium.selectorLabels" . | nindent 8 }}
+    spec:
+      automountServiceAccountToken: false
+      volumes:
+      - name: ds-data
+        persistentVolumeClaim:
+          claimName: {{ .Values.connect.name }}-pvc
+      - name: opt-prometheus
+        emptyDir: {}
+      - name: config
+        configMap:
+          name: {{ include "debezium.name" . }}
+      - name: scripts
+        configMap:
+          name: {{ include "debezium.name" . }}-scripts
+          defaultMode: 0777
+      containers:
+      - name: connector
+        image: {{ .Values.debezium.image }}
+        imagePullPolicy: Always
+        volumeMounts:
+        - name: ds-data
+          mountPath: /kafka/data
+{{- range $index, $connector := .Values.debezium.connectors }}
+        - name: config
+          mountPath: /etc/debezium/connector-{{ $index }}.json
+          subPath: connector-{{ $index }}.json
+{{- end }}
+        - name: config
+          mountPath: /etc/prometheus/jmx_exporter.yml
+          subPath: jmx_exporter.yml
+        - name: config
+          mountPath: /kafka/config/log4j.properties
+          subPath: log4j.properties
+        - name: scripts
+          mountPath: /kafka/scripts
+        - name: config
+          mountPath: /kafka/config/connect-distributed-tmp.properties
+          subPath: connect-distributed-tmp.properties
+        {{- with .Values.connect.env }}
+        env:
+          {{- toYaml . | nindent 12 }}
+        {{- end }}
+        command: ["bash", "-c", 'scripts/setup.sh']
+        lifecycle:
+          postStart:
+            exec:
+              command: ["bash", "-c", "scripts/setup_connectors.sh"]
+        resources:
+          requests:
+            cpu: 0.1
+            memory: 256Mi

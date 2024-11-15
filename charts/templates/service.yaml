@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "debezium.name" . }}-connect
+  labels:
+    {{- include "debezium.selectorLabels" . | nindent 6 }}
+spec:
+  type: {{ .Values.connect.service.type }}
+  ports:
+    - port: {{ .Values.connect.service.port }}
+      targetPort: {{ .Values.connect.service.port}}
+      protocol: {{ .Values.connect.service.protocol}}
+      name: {{ .Values.connect.service.name}}
+  selector:
+    {{- include "debezium.selectorLabels" . | nindent 8 }}

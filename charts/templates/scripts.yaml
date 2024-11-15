@@ -1,0 +1,20 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "debezium.name" . }}-scripts
+  labels:
+    {{- include "debezium.labels" . | nindent 4 }}
+data:
+  setup_connectors.sh: |
+    #!/bin/bash
+    sleep 60
+    {{- range $index, $connector := .Values.debezium.connectors }}
+    envsubst < /etc/debezium/connector-{{ $index }}.json > connector-{{ $index }}-tmp.json
+    curl --request PUT --header 'Accept:application/json' --header 'Content-Type:application/json' 'http://127.0.0.1:8083/connectors/{{ $connector.name }}/config' --data @connector-{{ $index }}-tmp.json
+    sleep 3
+    {{- end }}
+  setup.sh: |
+    #!/bin/bash
+    envsubst < /kafka/config/connect-distributed-tmp.properties > /kafka/config/connect-distributed.properties
+    /kafka/bin/connect-distributed.sh /kafka/config/connect-distributed.properties
