@@ -5,8 +5,7 @@ connect:
   properties:
     group_id: "1"
     topics_basename: "debezium"
-  secret:
-    # KAFKA_USER_PASSWORD: ""
+  secret: null
   kafka:
     bootstrap_servers: kafka:9092
     security_protocol: SASL_PLAINTEXT

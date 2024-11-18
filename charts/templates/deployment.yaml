@@ -61,10 +61,22 @@ spec:
         - name: config
           mountPath: /kafka/config/connect-distributed-tmp.properties
           subPath: connect-distributed-tmp.properties
-        {{- with .Values.connect.env }}
         env:
-          {{- toYaml . | nindent 12 }}
-        {{- end }}
+{{- with .Values.connect.env }}
+{{- toYaml . | nindent 10 }}
+{{- end }}
+{{- if .Values.connect.secret }}
+{{- with .Values.connect.secret }}
+{{- range $key, $_ := . }}
+          - name: {{ $key }}
+            valueFrom:
+              secretKeyRef:
+                name: {{ include "debezium.name" $ }}-secret
+                key: {{ $key }}
+
+{{- end }}
+{{- end }}
+{{- end }}
         command: ["bash", "-c", 'scripts/setup.sh']
         lifecycle:
           postStart:
