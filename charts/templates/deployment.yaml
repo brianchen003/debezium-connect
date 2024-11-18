@@ -28,7 +28,7 @@ spec:
       volumes:
       - name: ds-data
         persistentVolumeClaim:
-          claimName: {{ .Values.connect.name }}-pvc
+          claimName: {{ include "debezium.name" . }}-pvc
       - name: opt-prometheus
         emptyDir: {}
       - name: config
